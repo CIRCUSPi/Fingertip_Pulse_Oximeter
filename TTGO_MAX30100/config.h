@@ -19,6 +19,11 @@
 #endif
 /* #endregion */
 
+/* #region  TTGO Button GPIO */
+#define BUTTON_LEFT  0
+#define BUTTON_RIGHT 35
+/* #endregion */
+
 /* #region  Timer */
 #define SENSOR_GET_TIMER_MS       800
 #define PULSE_GET_TIMER_MS        20
@@ -26,6 +31,7 @@
 #define CHRG_BAT_ICON_TIMER_MS    500
 #define DISCHRG_BAT_ICON_TIMER_MS 10000
 #define SHOW_SENSOR_DATA_TIMER_MS 1000
+#define FINGER_OUT_TIMEOUT_MS     7000
 /* #endregion */
 
 /* #region  Buffer Size */
@@ -50,12 +56,24 @@
 #define READS             20
 /* #endregion */
 
+/* #region  Other */
+#define FINGER_ON_VALUE 7000
+/* #endregion */
+
 /* #region  Battery State */
 typedef enum
 {
     BAT_CHRG,
     BAT_DISCHRG,
+    BAT_NONE,
 } BAT_STATE_E;
 /* #endregion */
+
+typedef enum
+{
+    CHK_FINGER_STATE,
+    FINGER_OUT_START,
+    FINGER_OUT_KEEP,
+} CHK_SLEEP_STATE_E;
 
 #endif

@@ -26,10 +26,11 @@
  * and the distance of the transmission line
  * should be kept within 10 cm to avoid transmission failure.
  *
- * TODO: 無使用自動進入省電模式，節省電力
  * TODO: 透過按鈕選擇顯示方向
+ * TODO: 檢查深度睡眠模式功耗
+ * TODO: 進深度睡眠模式前提示
+ * TODO: 進深度睡眠模式前關閉TFT Chip
  * TODO: 顯示心律單直條圖
- * TODO: 顯示開機頁面版本資訊等等
  * TODO: 顯示電池電壓
  * TODO: 驗證省電模式續航力
  * TODO: 結合APP紀錄？
@@ -75,6 +76,7 @@ void TFTLibsInit(void);
 void MAX30100Init(void);
 void GPIOInit(void);
 void TaskMax30100(void);
+void TaskCheckSleep(void);
 void ShowVersion(void);
 void TaskDisplay(void);
 void drawBatIcon(String filePath);
@@ -165,6 +167,11 @@ void MAX30100Init(void)
 /* #region  GPIO Initialization */
 void GPIOInit(void)
 {
+    pinMode(BUTTON_LEFT, INPUT_PULLUP);
+    pinMode(BUTTON_RIGHT, INPUT_PULLUP);
+    // Set external wake-up pin
+    esp_sleep_enable_ext0_wakeup(GPIO_NUM_35, LOW);
+    // FIXME: ??
     // pinMode(14, OUTPUT);
     // digitalWrite(14, HIGH);
 }
@@ -175,6 +182,7 @@ void loop()
 {
     TaskMax30100();
     TaskDisplay();
+    TaskCheckSleep();
 }
 /* #endregion */
 
@@ -182,13 +190,13 @@ void loop()
 void ShowVersion(void)
 {
     tft.fillScreen(TFT_BLACK);
-    TJpgDec.drawFsJpg(0, 20, LOGO_PATH);
+    TJpgDec.drawFsJpg(0, 15, LOGO_PATH);
     tft.setTextColor(TFT_GREEN);
-    tft.drawString(String(DEVICE_NAME), 125, 40, 4);
+    tft.drawString(String(DEVICE_NAME), 125, 35, 4);
     tft.setTextColor(TFT_ORANGE);
-    tft.drawString(String("Version: "), 135, 70, 4);
+    tft.drawString(String("Version: "), 135, 65, 4);
     tft.setTextColor(TFT_YELLOW);
-    tft.drawString(String(Version), 140, 100, 4);
+    tft.drawString(String(Version), 140, 95, 4);
 }
 /* #endregion */
 
@@ -261,7 +269,8 @@ void TaskDisplay(void)
     static uint32_t show_bat_icon_timer  = 0;
     static uint32_t show_beat_spo2_timer = 0;
     static uint8_t  icon_idx             = 0;
-    static uint8_t  bat_state = BAT_DISCHRG, pre_bat_state = BAT_DISCHRG;
+    static uint8_t  bat_state = BAT_DISCHRG, pre_bat_state = BAT_NONE;
+    static int8_t   img_idx = -1, pre_img_idx = -1;
 
     char str_buff[8] = {'\0'};
     int  batteryLevel;
@@ -303,23 +312,24 @@ void TaskDisplay(void)
         // Discharge
         if (millis() > show_bat_icon_timer) {
             show_bat_icon_timer = millis() + DISCHRG_BAT_ICON_TIMER_MS;
-            int imgNum          = 0;
+            img_idx             = 0;
             batteryLevel        = BL.getBatteryChargeLevel();
             if (batteryLevel >= 80)
-                imgNum = 3;
+                img_idx = 3;
             else if (batteryLevel < 80 && batteryLevel >= 50)
-                imgNum = 2;
+                img_idx = 2;
             else if (batteryLevel < 50 && batteryLevel >= 20)
-                imgNum = 1;
+                img_idx = 1;
             else if (batteryLevel < 20)
-                imgNum = 0;
-            drawBatIcon(batteryImages[imgNum]);
+                img_idx = 0;
+            drawBatIcon(batteryImages[img_idx]);
         }
     }
 
     // show battery State/Level
-    if (bat_state != pre_bat_state) {
+    if (bat_state != pre_bat_state || img_idx != pre_img_idx) {
         pre_bat_state = bat_state;
+        pre_img_idx   = img_idx;
         memset(str_buff, '\0', sizeof(str_buff));
         tft.fillRect(105, 7, 63, 25, TFT_BLACK);
         tft.setTextSize(1);
@@ -355,6 +365,39 @@ void TaskDisplay(void)
     DEBUG_PRINT(heart_rate);
     DEBUG_PRINT(F(" , SPO2: "));
     DEBUG_PRINTLN(spo2);
+}
+/* #endregion */
+
+/* #region  Check if Deep Sleep mode is required  */
+void TaskCheckSleep(void)
+{
+    static uint8_t  state   = CHK_FINGER_STATE;
+    static uint32_t timeout = 0;
+    switch (state) {
+    case CHK_FINGER_STATE:
+        if (pox.ir < FINGER_ON_VALUE) {
+            timeout = millis() + FINGER_OUT_TIMEOUT_MS;
+            state   = FINGER_OUT_START;
+        }
+        break;
+    case FINGER_OUT_START:
+        if (millis() > timeout)
+            state = FINGER_OUT_KEEP;
+        if (pox.ir > FINGER_ON_VALUE)
+            state = CHK_FINGER_STATE;
+        break;
+    case FINGER_OUT_KEEP:
+        pox.setIRLedCurrent(MAX30100_LED_CURR_0MA);
+        pox.shutdown();
+        // wait Max30100 shutdown complete
+        DEBUG_PRINTLN(F("Going to sleep now"));
+        esp_deep_sleep_start();
+        DEBUG_PRINTLN(F("This will never be printed"));
+        break;
+
+    default:
+        break;
+    }
 }
 /* #endregion */
 
