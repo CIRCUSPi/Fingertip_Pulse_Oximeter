@@ -25,6 +25,14 @@
  * Notice: The MAX30100 uses high-speed(400k) I2C,
  * and the distance of the transmission line
  * should be kept within 10 cm to avoid transmission failure.
+ *
+ * TODO: 無使用自動進入省電模式，節省電力
+ * TODO: 透過按鈕選擇顯示方向
+ * TODO: 顯示心律單直條圖
+ * TODO: 顯示開機頁面版本資訊等等
+ * TODO: 顯示電池電壓
+ * TODO: 驗證省電模式續航力
+ * TODO: 結合APP紀錄？
  */
 
 #include "config.h"
@@ -51,7 +59,6 @@ uint8_t       spo2                                  = 0;
 uint8_t       heart_rate                            = 0;
 bool          detect_beat                           = false;
 bool          show_chart                            = false;
-int32_t       chart_num                             = 0;
 uint32_t      chart_clear_timer                     = 0;
 /* #endregion */
 
@@ -68,6 +75,7 @@ void TFTLibsInit(void);
 void MAX30100Init(void);
 void GPIOInit(void);
 void TaskMax30100(void);
+void ShowVersion(void);
 void TaskDisplay(void);
 void drawBatIcon(String filePath);
 bool onTJpgDecoded(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap);
@@ -84,8 +92,10 @@ void setup()
 #endif
     GPIOInit();
     TFTLibsInit();
-    MAX30100Init();
     SPIFFSInit();
+    ShowVersion();
+    delay(5000);
+    MAX30100Init();
 }
 /* #endregion */
 
@@ -94,10 +104,13 @@ void SPIFFSInit(void)
 {
     if (!SPIFFS.begin()) {
         DEBUG_PRINTLN(F("SPIFFS initialisation failed!"));
+        tft.fillScreen(TFT_BLACK);
+        tft.setTextColor(TFT_RED);
+        tft.drawString(String("SPIFFS FAILED"), 30, 55, 4);
         while (1)
             yield();
     }
-    DEBUG_PRINTLN(F("\r\nInitialisation done."));
+    DEBUG_PRINTLN(F("\r\nSPIFFS Initialisation done."));
 }
 /* #endregion */
 
@@ -123,16 +136,15 @@ void TFTLibsInit(void)
 /* #region  Max30100 Initialization */
 void MAX30100Init(void)
 {
-    // TODO: 加入開機畫面，版本資訊
-    tft.setCursor(0, 0, 4);
+    tft.fillScreen(TFT_BLACK);
     if (!pox.begin()) {
-        DEBUG_PRINTLN(F("FAILED"));
-        tft.print(F("FAILED"));
+        DEBUG_PRINTLN(F("MAX30100 Initialization Failed !"));
+        tft.setTextColor(TFT_RED);
+        tft.drawString(String("MAX30100 FAILED"), 13, 55, 4);
         while (true)
             yield();
     } else {
-        DEBUG_PRINTLN(F("SUCCESS"));
-        tft.print(F("SUCCESS"));
+        DEBUG_PRINTLN(F("MAX30100 Initialization Success !"));
     }
     // LED Configuration
     pox.setIRLedCurrent(MAX30100_LED_CURR_7_6MA);
@@ -141,7 +153,7 @@ void MAX30100Init(void)
 
     // show initialization surface
     tft.fillScreen(TFT_BLACK);
-    tft.setCursor(10, 0, 4);
+    tft.setCursor(10, 3, 4);
     tft.setTextColor(TFT_ORANGE, TFT_BLACK);
     tft.print("%SpO2");
     tft.setCursor(153, 38, 4);
@@ -163,6 +175,20 @@ void loop()
 {
     TaskMax30100();
     TaskDisplay();
+}
+/* #endregion */
+
+/* #region  Show Device Name and Version */
+void ShowVersion(void)
+{
+    tft.fillScreen(TFT_BLACK);
+    TJpgDec.drawFsJpg(0, 20, LOGO_PATH);
+    tft.setTextColor(TFT_GREEN);
+    tft.drawString(String(DEVICE_NAME), 125, 40, 4);
+    tft.setTextColor(TFT_ORANGE);
+    tft.drawString(String("Version: "), 135, 70, 4);
+    tft.setTextColor(TFT_YELLOW);
+    tft.drawString(String(Version), 140, 100, 4);
 }
 /* #endregion */
 
@@ -223,7 +249,7 @@ void TaskMax30100(void)
             clearTFTchartBuff();
         else
             // FIXME: 重新校正?
-            chart_num = (int32_t)map(pox.ftPlsVal, min_avg, max_avg, 10, 0);
+            chartNumList[CHART_BUFF_SIZE - 1] = (int32_t)(map(pox.ftPlsVal, min_avg, max_avg, 10, 0) + 10);
         show_chart = true;
     }
 }
@@ -235,7 +261,10 @@ void TaskDisplay(void)
     static uint32_t show_bat_icon_timer  = 0;
     static uint32_t show_beat_spo2_timer = 0;
     static uint8_t  icon_idx             = 0;
-    char            str_buff[8];
+    static uint8_t  bat_state = BAT_DISCHRG, pre_bat_state = BAT_DISCHRG;
+
+    char str_buff[8] = {'\0'};
+    int  batteryLevel;
 
     // Display heartbeat and SpO2 at fixed time or when a heartbeat is detected
     if (detect_beat || millis() > show_beat_spo2_timer) {
@@ -259,26 +288,23 @@ void TaskDisplay(void)
 
     // show battery icon
     if (BL.getBatteryVolts() >= MIN_USB_VOL) {
+        bat_state = BAT_CHRG;
         // Charge
         if (millis() > show_bat_icon_timer) {
             show_bat_icon_timer = millis() + CHRG_BAT_ICON_TIMER_MS;
             // Draw Bat Icon
             drawBatIcon(batteryImages[icon_idx++]);
+            // check bat icon idx
+            if (icon_idx >= ARRAY_SIZE(batteryImages))
+                icon_idx = 0;
         }
-        // check bat icon idx
-        if (icon_idx >= ARRAY_SIZE(batteryImages))
-            icon_idx = 0;
-        tft.setCursor(110, 7);
-        tft.setTextSize(1);
-        tft.setTextFont(4);
-        tft.setTextColor(TFT_RED, TFT_BLACK);
-        tft.print(F("Chrg"));
     } else {
+        bat_state = BAT_DISCHRG;
         // Discharge
         if (millis() > show_bat_icon_timer) {
             show_bat_icon_timer = millis() + DISCHRG_BAT_ICON_TIMER_MS;
             int imgNum          = 0;
-            int batteryLevel    = BL.getBatteryChargeLevel();
+            batteryLevel        = BL.getBatteryChargeLevel();
             if (batteryLevel >= 80)
                 imgNum = 3;
             else if (batteryLevel < 80 && batteryLevel >= 50)
@@ -288,21 +314,37 @@ void TaskDisplay(void)
             else if (batteryLevel < 20)
                 imgNum = 0;
             drawBatIcon(batteryImages[imgNum]);
-            // TODO: 避免覆蓋
+        }
+    }
+
+    // show battery State/Level
+    if (bat_state != pre_bat_state) {
+        pre_bat_state = bat_state;
+        memset(str_buff, '\0', sizeof(str_buff));
+        tft.fillRect(105, 7, 63, 25, TFT_BLACK);
+        tft.setTextSize(1);
+        tft.setTextFont(4);
+        switch (bat_state) {
+        case BAT_CHRG:
+            tft.setCursor(110, 7);
+            tft.setTextColor(TFT_RED, TFT_BLACK);
+            strcpy(str_buff, "Chrg");
+            break;
+        case BAT_DISCHRG:
             sprintf(str_buff, "%3d%%", GET_MIN(batteryLevel, 100));
             tft.setCursor(105, 7);
-            tft.setTextSize(1);
-            tft.setTextFont(4);
             tft.setTextColor(TFT_SKYBLUE, TFT_BLACK);
             // Show battery Level
-            tft.print(str_buff);
+            break;
+        default:
+            break;
         }
+        tft.print(str_buff);
     }
 
     // Show heart rate bar graph
     if (show_chart) {
-        show_chart                    = false;
-        chartNumList[tft.width() - 1] = (int32_t)(chart_num + 10);
+        show_chart = false;
         graph.createSprite(tft.width(), 30);
         drawTFTchart(chartNumList, 1, false, tft.color565(0, 0, 255));
         graph.pushSprite(0, 105);
