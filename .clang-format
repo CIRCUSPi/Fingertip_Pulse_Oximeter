@@ -1,0 +1,18 @@
+IndentWidth: 4
+ColumnLimit: 0
+AlignConsecutiveAssignments:  true
+AlignConsecutiveDeclarations: true
+AlignOperands: true
+AlignTrailingComments: true
+AllowShortCaseLabelsOnASingleLine: false
+BreakBeforeBraces: Custom
+BraceWrapping:
+    AfterStruct: false
+    AfterFunction: true
+    AfterEnum : true
+AllowShortFunctionsOnASingleLine: InlineOnly
+ContinuationIndentWidth: 5
+ColumnLimit: 200
+SpacesBeforeTrailingComments: 5
+AlignArrayOfStructures: Left
+AlignConsecutiveMacros: AcrossEmptyLines
