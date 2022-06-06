@@ -122,7 +122,7 @@ void TFTLibsInit(void)
     // TFT
     tft.init();
     tft.fillScreen(TFT_BLACK);
-    tft.setRotation(3);
+    tft.setRotation(1);
     tft.setSwapBytes(true);
     // u8g2
     u8g2.begin(tft);
@@ -196,7 +196,7 @@ void ShowVersion(void)
     tft.setTextColor(TFT_ORANGE);
     tft.drawString(String("Version: "), 135, 65, 4);
     tft.setTextColor(TFT_YELLOW);
-    tft.drawString(String(Version), 140, 95, 4);
+    tft.drawString(String(Version), 150, 95, 4);
 }
 /* #endregion */
 
@@ -270,10 +270,9 @@ void TaskDisplay(void)
     static uint32_t show_beat_spo2_timer = 0;
     static uint8_t  icon_idx             = 0;
     static uint8_t  bat_state = BAT_DISCHRG, pre_bat_state = BAT_NONE;
-    static int8_t   img_idx = -1, pre_img_idx = -1;
+    static int8_t   batteryLevel = 0, pre_batteryLevel = 0;
 
     char str_buff[8] = {'\0'};
-    int  batteryLevel;
 
     // Display heartbeat and SpO2 at fixed time or when a heartbeat is detected
     if (detect_beat || millis() > show_beat_spo2_timer) {
@@ -312,7 +311,7 @@ void TaskDisplay(void)
         // Discharge
         if (millis() > show_bat_icon_timer) {
             show_bat_icon_timer = millis() + DISCHRG_BAT_ICON_TIMER_MS;
-            img_idx             = 0;
+            int8_t img_idx      = 0;
             batteryLevel        = BL.getBatteryChargeLevel();
             if (batteryLevel >= 80)
                 img_idx = 3;
@@ -327,9 +326,9 @@ void TaskDisplay(void)
     }
 
     // show battery State/Level
-    if (bat_state != pre_bat_state || img_idx != pre_img_idx) {
-        pre_bat_state = bat_state;
-        pre_img_idx   = img_idx;
+    if (bat_state != pre_bat_state || batteryLevel != pre_batteryLevel) {
+        pre_bat_state    = bat_state;
+        pre_batteryLevel = batteryLevel;
         memset(str_buff, '\0', sizeof(str_buff));
         tft.fillRect(105, 7, 63, 25, TFT_BLACK);
         tft.setTextSize(1);
@@ -344,7 +343,6 @@ void TaskDisplay(void)
             sprintf(str_buff, "%3d%%", GET_MIN(batteryLevel, 100));
             tft.setCursor(105, 7);
             tft.setTextColor(TFT_SKYBLUE, TFT_BLACK);
-            // Show battery Level
             break;
         default:
             break;
@@ -389,6 +387,9 @@ void TaskCheckSleep(void)
     case FINGER_OUT_KEEP:
         pox.setIRLedCurrent(MAX30100_LED_CURR_0MA);
         pox.shutdown();
+        tft.writecommand(ST7789_DISPOFF);
+        tft.writecommand(ST7789_SLPIN);
+        delay(5);
         // wait Max30100 shutdown complete
         DEBUG_PRINTLN(F("Going to sleep now"));
         esp_deep_sleep_start();
