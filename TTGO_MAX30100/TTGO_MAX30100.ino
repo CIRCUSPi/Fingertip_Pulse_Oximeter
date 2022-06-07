@@ -1,39 +1,12 @@
-/*
- * @Author : Zack Huang
- * @Link :
- * @Date : 6/5/2022, 12:29:47 PM
+/**
+ * @file TTGO_MAX30100.ino
+ * @author Zack Huang (zackhuang0513@gmail.com)
+ * @brief Fingertip Pulse Oximeter
+ * @version 1.0.0
+ * @date 2022-06-05
  *
- * Hardware Used
- * Development board: TTGO T-Display >> https://www.icshop.com.tw/product-page.php?28572
- * Pulse Oximeter Sensor: MAX30100 >> https://www.icshop.com.tw/product-page.php?28034
- * LiPo Battery: Lipo 500mAh 3.7V 602535 >> https://www.icshop.com.tw/product-page.php?14047
+ * @copyright Copyright (c) 2022
  *
- * Board Config: ESP32 Dev Module
- *
- * Librarys
- *
- * Arduino Library Manager:
- * LittleFS_esp32(V1.0.6)       >> https://github.com/lorol/LITTLEFS
- * MAX30100lib(V1.2.1)          >> https://github.com/oxullo/Arduino-MAX30100
- * TJpg_Decoder(V1.0.5)         >> https://github.com/Bodmer/TJpg_Decoder
- *
- * Github
- * 18650CL(e1be2aa)             >> https://github.com/pangodream/18650CL
- * TFT_eSPI(4ced37a)            >> https://github.com/Bodmer/TFT_eSPI
- * U8g2_for_TFT_eSPI(a170ef8)   >> https://github.com/Bodmer/U8g2_for_TFT_eSPI
- *
- * Notice: The MAX30100 uses high-speed(400k) I2C,
- * and the distance of the transmission line
- * should be kept within 10 cm to avoid transmission failure.
- *
- * TODO: 透過按鈕選擇顯示方向
- * TODO: 檢查深度睡眠模式功耗
- * TODO: 進深度睡眠模式前提示
- * TODO: 進深度睡眠模式前關閉TFT Chip
- * TODO: 顯示心律單直條圖
- * TODO: 顯示電池電壓
- * TODO: 驗證省電模式續航力
- * TODO: 結合APP紀錄？
  */
 
 #include "config.h"
@@ -82,8 +55,8 @@ void TaskDisplay(void);
 void drawBatIcon(String filePath);
 bool onTJpgDecoded(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap);
 void drawTFTchart(int32_t *myNumList, byte chartType, bool dirType, uint16_t myColor);
-void clearTFTchartBuff();
-void onBeatDetected();
+void clearTFTchartBuff(void);
+void onBeatDetected(void);
 /* #endregion */
 
 /* #region  Arduino Setup */
@@ -403,6 +376,11 @@ void TaskCheckSleep(void)
 /* #endregion */
 
 /* #region  Draw Battery Icon */
+/**
+ * @brief Draw Battery Icon
+ *
+ * @param filePath 圖檔路徑
+ */
 void drawBatIcon(String filePath)
 {
     TJpgDec.drawFsJpg(ICON_POS_X, 0, filePath);
@@ -410,6 +388,17 @@ void drawBatIcon(String filePath)
 /* #endregion */
 
 /* #region  Tjpg decode callback  */
+/**
+ * @brief Tjpg decode callback
+ *
+ * @param x 顯示位置x軸
+ * @param y 顯示位置y軸
+ * @param w 圖片寬度
+ * @param h 圖片高度
+ * @param bitmap 圖片bit map
+ * @return true 顯示成功
+ * @return false 失敗，圖片高度超過可顯示區域
+ */
 bool onTJpgDecoded(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap)
 {
     if (y >= tft.height())
@@ -421,11 +410,13 @@ bool onTJpgDecoded(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitma
 /* #endregion */
 
 /* #region  Draw TFT chart */
-/*
- * myNumList >> 顯示buff，此方法將會移動buff內容
- * chartType >> 顯示類型，0=折線圖，1=長條圖
- * dirType   >> 刷新方向，true=左到右，false=右到左
- * myColor   >> 顯示顏色
+/**
+ * @brief Draw TFT chart
+ *
+ * @param myNumList 顯示buff，此方法將會移動buff內容
+ * @param chartType 顯示類型，0=折線圖，1=長條圖
+ * @param dirType 刷新方向，true=左到右，false=右到左
+ * @param myColor 顯示顏色
  */
 void drawTFTchart(int32_t *myNumList, byte chartType, bool dirType, uint16_t myColor)
 {
@@ -456,7 +447,7 @@ void drawTFTchart(int32_t *myNumList, byte chartType, bool dirType, uint16_t myC
 /* #endregion */
 
 /* #region  Clear heart rate graph buffer */
-void clearTFTchartBuff()
+void clearTFTchartBuff(void)
 {
     for (int i = 0; i < CHART_BUFF_SIZE; i++)
         chartNumList[i] = -1;
@@ -464,7 +455,7 @@ void clearTFTchartBuff()
 /* #endregion */
 
 /* #region  Callback fired when a pulse is detected */
-void onBeatDetected()
+void onBeatDetected(void)
 {
     chart_clear_timer = millis() + CHART_CLEAR_TIMER_MS;
     detect_beat       = true;
