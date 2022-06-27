@@ -7,6 +7,9 @@
 #define LOGO_PATH   "/CIRCUSPI_logo.jpg"
 /* #endregion */
 
+// Select esp_TFT TTGO_T_DISPLAY Config
+#define TTGO_T_DISPLAY
+
 /* #region  Development Settings */
 #define DEBUG_MODE false
 #if DEBUG_MODE
