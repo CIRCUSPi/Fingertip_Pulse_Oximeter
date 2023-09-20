@@ -9,19 +9,24 @@
 ## Hardware
 * [TTGO T-Display ESP32 CH9102 WiFi 模組(16MB)](https://www.icshop.com.tw/product-page.php?28572)
 * [MAX30100 血氧感測器模組](https://www.icshop.com.tw/product-page.php?28034)
-* [聚合物鋰電池-500mAh 3.7V](https://www.icshop.com.tw/product-page.php?14047) (JST Connector不相容，代替換)
+* [聚合物鋰電池-500mAh 3.7V](https://www.icshop.com.tw/product-page.php?14047)
 
 ## Development Platform
-* Arduino IDE 1.8.16
-* Board Config ESP32 Dev Module
+* Arduino IDE:      V1.8.16
+* ESP32 Package:    V1.0.6
+* Board Config:     ESP32 Dev Module
+* ESP32 Filesystem: V1.1
 ## From Arduino Library Manager
 * [LittleFS_esp32 (V1.0.6)](https://github.com/lorol/LITTLEFS)
 * [TJpg_Decoder (V1.0.5)](https://github.com/Bodmer/TJpg_Decoder)
 ## From Github
 * [Arduino-MAX30100 (969b0ba)](https://github.com/CIRCUSPi/Arduino-MAX30100)
-* [TFT_eSPI (f6c8ad2)](https://github.com/CIRCUSPi/TFT_eSPI/tree/TTGO_T_Display)
+* [TFT_eSPI (333f0f8)](https://github.com/Bodmer/TFT_eSPI)
 * [18650CL (e1be2aa)](https://github.com/pangodream/18650CL)
 * [U8g2_for_TFT_eSPI (a170ef8)](https://github.com/Bodmer/U8g2_for_TFT_eSPI)
+
+## ESP32FS Install
+* 參考此文章 [Install ESP32 Filesystem Uploader in Arduino IDE](https://randomnerdtutorials.com/install-esp32-filesystem-uploader-arduino-ide/)
 
 ## 硬體接線
 * TTGO IO21(SDA) >> MAX30100 SDA
